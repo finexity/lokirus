@@ -2,21 +2,26 @@ package lokirus
 
 import (
 	"fmt"
-	"github.com/afiskon/promtail-client/promtail"
-	"github.com/sirupsen/logrus"
 	"os"
 	"time"
+
+	"github.com/afiskon/promtail-client/promtail"
+	"github.com/sirupsen/logrus"
 )
 
-type LokirusHook struct {
+// LokiHook is a logrus hook for Loki
+type LokiHook struct {
 	AcceptedLevels []logrus.Level
 	Client         promtail.Client
 }
 
-func New(hostUrl string, source string) (*LokirusHook, error) {
+// New creates a new hook
+// hostURL - host of system
+// source - the source of the logs
+func New(hostURL string, source string) (*LokiHook, error) {
 	labels := "{source=\"" + source + "\"}"
 	conf := promtail.ClientConfig{
-		PushURL:            hostUrl + "/api/prom/push",
+		PushURL:            hostURL + "/api/prom/push",
 		Labels:             labels,
 		BatchWait:          5 * time.Second,
 		BatchEntriesNumber: 10000,
@@ -27,20 +32,25 @@ func New(hostUrl string, source string) (*LokirusHook, error) {
 	if err != nil {
 		return nil, err
 	}
-	hook := &LokirusHook{
+	hook := &LokiHook{
 		AcceptedLevels: logrus.AllLevels,
 		Client:         client,
 	}
 
 	return hook, nil
 }
-func (l *LokirusHook) Fire(e *logrus.Entry) error {
-	fmt.Printf("LokirusHook2 %v", e.Level)
+
+// Fire forwards the received Logrus entry  to Loki
+func (l *LokiHook) Fire(e *logrus.Entry) error {
+
+	// retrieve log message
 	line, err := e.String()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to read entry, %v", err)
 		return err
 	}
+
+	// execute respective log level
 	switch e.Level {
 	case logrus.DebugLevel, logrus.TraceLevel:
 		l.Client.Debugf(line)
@@ -51,8 +61,11 @@ func (l *LokirusHook) Fire(e *logrus.Entry) error {
 	default:
 		l.Client.Warnf(line)
 	}
+
 	return nil
 }
-func (l *LokirusHook) Levels() []logrus.Level {
+
+// Levels returns all accepted log levels
+func (l *LokiHook) Levels() []logrus.Level {
 	return l.AcceptedLevels
 }
